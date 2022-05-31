@@ -1,4 +1,5 @@
 from datetime import datetime, date, time, timedelta
+from typing import Dict, Optional
 from pathlib import Path
 
 import pandas as pd
@@ -11,7 +12,7 @@ from data import Network, Airline, Airport, Flight
 class Reader:
     FLIGHTS_COLS = ['YEAR', 'MONTH', 'DAY', 'AIRLINE', 'ORIGIN_AIRPORT', 'DESTINATION_AIRPORT', 'SCHEDULED_DEPARTURE', 'DISTANCE', 'SCHEDULED_TIME', 'SCHEDULED_ARRIVAL']
 
-    # TODO I think we should create a much more complex distribution to generate price
+    # TODO I think we should create a much more complex distribution to generate price, and add some noise
     @staticmethod
     def _generate_price(dists: np.ndarray):
         return np.round(np.random.normal(0.2, 0.07, size=dists.shape[0]) * dists, 2)
@@ -40,8 +41,19 @@ class Reader:
         return airports_df
 
     @staticmethod
-    def _flights_preprocessing(flights_df: pd.DataFrame) -> pd.DataFrame:
+    def _flights_preprocessing(
+        flights_df: pd.DataFrame,
+        airlines: Dict[str, Airline],
+        airports: Dict[str, Airport],
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None
+    ) -> pd.DataFrame:
+
         flights_df = flights_df[Reader.FLIGHTS_COLS].dropna()
+
+        flights_df = flights_df[flights_df['ORIGIN_AIRPORT'].isin(airports)]
+        flights_df = flights_df[flights_df['DESTINATION_AIRPORT'].isin(airports)]
+        flights_df = flights_df[flights_df['AIRLINE'].isin(airlines)]
 
         flights_df['PRICE'] = Reader._generate_price(flights_df['DISTANCE'].to_numpy(np.int32))
         
@@ -57,10 +69,16 @@ class Reader:
         flights_df['DEPARTURE'] = departure_datetimes
         flights_df['ARRIVAL'] = arrival_datetimes
 
+        if from_date is not None:
+            flights_df = flights_df[flights_df['DEPARTURE'] >= from_date]
+
+        if to_date is not None:
+            flights_df = flights_df[flights_df['ARRIVAL'] <= to_date]
+
         return flights_df
 
     @staticmethod
-    def read_flights(data_dir: str):
+    def read_flights(data_dir: str, from_date: datetime = None, to_date: datetime = None):
         data_dir = Path(data_dir).resolve()
 
         if not data_dir.exists() or not data_dir.is_dir():
@@ -74,19 +92,18 @@ class Reader:
         flights_df = pd.read_csv(data_dir / 'flights.csv')
 
         airlines_df = Reader._airlines_preprocessing(airlines_df)
-        airports_df = Reader._airports_preprocessing(airports_df)
-        flights_df = Reader._flights_preprocessing(flights_df)
-
         airlines = {
             row.IATA_CODE: Airline(row.IATA_CODE, row.AIRLINE)
             for row in airlines_df.itertuples()
         }
 
+        airports_df = Reader._airports_preprocessing(airports_df)
         airports = {
             row.IATA_CODE: Airport(row.IATA_CODE, row.AIRPORT, row.CITY, row.STATE, row.COUNTRY, terminals=row.TERMINALS)
             for row in airports_df.itertuples()
         }
 
+        flights_df = Reader._flights_preprocessing(flights_df, airlines, airports, from_date, to_date)
         flights = [
             Flight(
                 origin=airports[row.ORIGIN_AIRPORT],
@@ -102,10 +119,6 @@ class Reader:
 
         return Network(
             list(airports.values()),
-            flights.values(),
+            flights,
             list(airlines.values())
         )
-
-
-if __name__ == '__main__':
-    Reader.read_flights(Path('../../../data'))
