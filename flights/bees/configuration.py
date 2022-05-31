@@ -1,0 +1,2 @@
+class BeeColonyConfiguration:
+    pass

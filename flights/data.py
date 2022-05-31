@@ -4,18 +4,27 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 from copy import copy
 
+import networkx as nx
+
 
 class Airport:
     def __init__(
         self, 
         codename: str,
+        name: str,
         city: str,
+        state: str,
+        country: str,
         terminals: int = None,
-        default_transfer_time: int = timedelta(minutes=15)
+        default_transfer_time: int = timedelta(minutes=15)  # FIXME declaration is int, but default value is timedelta
     ) -> None:
 
         self._codename = codename
+        self._name = name
+    
         self._city = city
+        self._state = state
+        self._country = country
 
         # TODO eventually we can add proximate cities (the ones which are close enough to the airport to neglect the cost and time)
 
@@ -25,17 +34,25 @@ class Airport:
         else:
             self._transfer_time = default_transfer_time
 
-        self._in_flights: List[Flight] = []
-        self._out_flights: List[Flight] = []
-
-
     @property
     def codename(self) -> str:
         return self._codename
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def city(self) -> str:
         return self._city
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    @property
+    def country(self) -> str:
+        return self._country
 
     @property
     def terminals(self) -> Optional[int]:
@@ -45,27 +62,35 @@ class Airport:
     def transfer_time(self) -> timedelta:
         return self._transfer_time
 
-    @property
-    def in_flights(self) -> List[Flight]:
-        return copy(self._in_flights)
-
-    @property
-    def out_flights(self) -> List[Flight]:
-        return copy(self._out_flights)
-
-    def add_flight(self, flight: Flight):
-        if self != flight.origin or self != flight.destination:
-            raise ValueError('the airport you are adding flight to is neither its origin nor destination')
-        
-        if self == flight.origin:
-            self._out_flights.append(flight)
-        else:
-            self._in_flights.append(flight)
-
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, Airport):
             return False
         return self.codename == __o.codename
+
+    def __hash__(self) -> int:
+        return hash(self._codename)
+
+
+class Airline:
+    def __init__(self, codename: str, name: str) -> None:
+        self._codename = codename
+        self._name = name
+
+    @property
+    def codename(self) -> str:
+        return self._codename
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, Airline):
+            return False
+        return self._codename == __o.codename
+
+    def __hash__(self) -> int:
+        return hash(self._codename)
 
 
 class Flight:
@@ -73,24 +98,27 @@ class Flight:
         self,
         origin: Airport,
         destination: Airport,
+        airline: Airline,
         departure: datetime,
         arrival: datetime,
         price: float,
         miles: int = None,
     ) -> None:
         
-        self._origin = origin
-        self._destination = destination
+        self._origin: Airport = origin
+        self._destination: Airport = destination
+
+        self._airline = airline
 
         if departure > arrival:
             raise ValueError('departure cannot happen after the arrival')
 
-        self._departure = departure
-        self._arrival = arrival
+        self._departure: datetime = departure
+        self._arrival: datetime = arrival
         
-        self._price = price
+        self._price: float = price
 
-        self._miles = miles
+        self._miles: int = miles
 
     @property
     def origin(self) -> Airport:
@@ -99,6 +127,10 @@ class Flight:
     @property
     def destination(self) -> Airport:
         return self._destination
+
+    @property
+    def airline(self) -> Airline:
+        return self._airline
 
     @property
     def departure(self) -> datetime:
@@ -130,11 +162,44 @@ class Flight:
             
         return self.origin      == __o.origin \
            and self.destination == __o.destination \
+           and self.airline    == __o.airline \
            and self.departure   == __o.departure \
            and self.arrival     == __o.arrival \
            and self.price       == __o.price
 
 
 class Network:
-    def __init__(self) -> None:
-        pass
+    def __init__(
+        self,
+        airports: List[Airport],
+        flights: List[Flight],
+        airlines: List[Airline]
+    ) -> None:
+    
+        self._airports = airports
+        self._flights = flights
+        self._airlines = airlines
+
+        self._graph = nx.MultiDiGraph()
+
+        self._graph.add_nodes_from(self._airports)
+        self._graph.add_edges_from([
+            (flight.origin, flight.destination, {'obj': flight})
+            for flight in self._flights
+        ])
+
+    @property
+    def airports(self) -> List[Airport]:
+        return copy(self._airports)
+
+    @property
+    def flights(self) -> List[Flight]:
+        return copy(self._flights)
+
+    @property
+    def airlines(self) -> List[Airline]:
+        return copy(self._airlines)
+
+    @property
+    def graph(self) -> nx.MultiDiGraph:
+        return self._graph
