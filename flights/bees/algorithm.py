@@ -8,7 +8,9 @@ class BeeColonyAlgorithm:
         network: Network,
         configuration: BeeColonyConfiguration
     ) -> None:
-        pass
+        
+        self._network = network
+        self._configuration = configuration
 
     def run(self):
         pass

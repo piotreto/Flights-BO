@@ -78,7 +78,7 @@ class Reader:
         return flights_df
 
     @staticmethod
-    def read_flights(data_dir: str, from_date: datetime = None, to_date: datetime = None):
+    def read_flights(data_dir: str, from_date: datetime = None, to_date: datetime = None) -> Network:
         data_dir = Path(data_dir).resolve()
 
         if not data_dir.exists() or not data_dir.is_dir():
@@ -118,7 +118,7 @@ class Reader:
         ]
 
         return Network(
+            list(airlines.values()),
             list(airports.values()),
-            flights,
-            list(airlines.values())
+            flights
         )

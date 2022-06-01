@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime, timedelta
+from collections import defaultdict
 from copy import copy
 
 import networkx as nx
+import numpy as np
 
 
 class Airport:
@@ -171,14 +173,14 @@ class Flight:
 class Network:
     def __init__(
         self,
+        airlines: List[Airline],
         airports: List[Airport],
-        flights: List[Flight],
-        airlines: List[Airline]
+        flights: List[Flight]
     ) -> None:
-    
+
+        self._airlines = airlines
         self._airports = airports
         self._flights = flights
-        self._airlines = airlines
 
         self._graph = nx.MultiDiGraph()
 
@@ -203,3 +205,62 @@ class Network:
     @property
     def graph(self) -> nx.MultiDiGraph:
         return self._graph
+
+    def filter_by_date(self, from_date: datetime, to_date: datetime) -> Network:
+        flights = [
+            flight
+            for flight in self._flights
+            if from_date <= flight.departure and flight.arrival <= to_date
+        ]
+
+        return Network(self._airlines, self._airports, flights)
+
+    def random_dfs_search(self, source: Airport, target: Airport, time_offset: datetime = None) -> Optional[List[Flight]]:
+
+        if source == target:
+            return []
+
+        if time_offset is None:
+            time_offset = datetime(1970, 1, 1)
+
+        # default value is 9999th year, so that each entrance will have a better time
+        visited: Dict[Airport, datetime] = defaultdict(lambda: datetime(9999, 12, 31))
+        parent: Dict[Airport, Flight] = dict()
+        stack = [(source, time_offset)]
+
+        def aggregate_path():
+            if target not in parent:
+                return None
+
+            path = []
+            current = target
+            while current != source:
+                flight = parent[current]
+
+                path.append(flight)
+                current = flight.origin
+
+            return path[::-1]
+
+        while stack:
+
+            airport, offset = stack.pop()
+            offset += airport.transfer_time
+
+            for u, v, k in np.random.permutation(list(self._graph.out_edges(airport, keys=True))):
+                flight: Flight = self._graph.edges[u, v, k]['obj']
+
+                if flight.departure < offset:
+                    continue
+
+                if visited[v] <= flight.arrival:
+                    continue
+
+                visited[v] = flight.arrival
+                parent[v] = flight
+                stack.append((v, flight.arrival))
+
+                if v == target:
+                    return aggregate_path()
+
+        return None
