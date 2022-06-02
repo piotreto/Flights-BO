@@ -5,8 +5,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-# from .data import Network, Airline, Airport, Flight
-from data import Network, Airline, Airport, Flight
+from .data import Network, Airline, Airport, Flight
 
 
 class Reader:
