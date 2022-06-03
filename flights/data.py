@@ -17,6 +17,8 @@ class Airport:
         city: str,
         state: str,
         country: str,
+        longitude: float,
+        latitude: float,
         terminals: int = None,
         default_transfer_time: int = timedelta(minutes=15)  # FIXME declaration is int, but default value is timedelta
     ) -> None:
@@ -27,6 +29,9 @@ class Airport:
         self._city = city
         self._state = state
         self._country = country
+
+        self._longitude = longitude
+        self._latitude = latitude
 
         # TODO eventually we can add proximate cities (the ones which are close enough to the airport to neglect the cost and time)
 
@@ -55,6 +60,14 @@ class Airport:
     @property
     def country(self) -> str:
         return self._country
+
+    @property
+    def longitude(self) -> float:
+        return self._longitude
+
+    @property
+    def latitude(self) -> float:
+        return self._latitude
 
     @property
     def terminals(self) -> Optional[int]:

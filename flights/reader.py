@@ -98,7 +98,7 @@ class Reader:
 
         airports_df = Reader._airports_preprocessing(airports_df)
         airports = {
-            row.IATA_CODE: Airport(row.IATA_CODE, row.AIRPORT, row.CITY, row.STATE, row.COUNTRY, terminals=row.TERMINALS)
+            row.IATA_CODE: Airport(row.IATA_CODE, row.AIRPORT, row.CITY, row.STATE, row.COUNTRY, row.LONGITUDE, row.LATITUDE, terminals=row.TERMINALS)
             for row in airports_df.itertuples()
         }
 
