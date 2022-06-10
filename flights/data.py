@@ -20,7 +20,7 @@ class Airport:
         longitude: float,
         latitude: float,
         terminals: int = None,
-        default_transfer_time: int = timedelta(minutes=15)  # FIXME declaration is int, but default value is timedelta
+        default_transfer_time: timedelta = timedelta(minutes=45)
     ) -> None:
 
         self._codename = codename
@@ -37,7 +37,7 @@ class Airport:
 
         self._terminals = terminals
         if terminals is not None:
-            self._transfer_time = timedelta(minutes=15)  # TODO somehow calculate transfer time
+            self._transfer_time = timedelta(minutes=15) * self._terminals  # TODO somehow calculate transfer time
         else:
             self._transfer_time = default_transfer_time
 
