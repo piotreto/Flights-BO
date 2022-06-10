@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from operator import attrgetter
-from typing import List, Iterator
+from typing import List, Iterator, Optional
 from datetime import timedelta
 from copy import copy
 
@@ -13,8 +13,12 @@ from .configuration import BeeColonyConfiguration
 
 class SolutionPath:
     def __init__(self, algorithm: BeeColonyAlgorithm, path: List[Flight]) -> None:
-        self._path = copy(path)
-        self._cost = algorithm.cost_function(path)
+        if path is not None:
+            self._path = copy(path)
+            self._cost = algorithm.cost_function(path)
+        else:
+            self._path = None
+            self._cost = float('inf')
 
     def __len__(self) -> int:
         return len(self._path)
@@ -35,7 +39,6 @@ class SolutionPath:
 
     
 class Neighborhood:
-    # TODO try out with frozen nodes, not flights, it should give us much better results
     def __init__(self, algorithm: BeeColonyAlgorithm, path: SolutionPath) -> None:
         self._algorithm = algorithm
         
@@ -86,17 +89,25 @@ class Neighborhood:
         for _ in range(self._foragers):
             frozen_origin = self._frozen_flights[-1].destination
             
-            path = self._frozen_flights + net.random_dfs_search(
+            extended_path = net.random_dfs_search(
                 frozen_origin,
                 self._center_path[-1].destination,
-                self._frozen_flights[-1].arrival + frozen_origin.transfer_time
+                self._frozen_flights[-1].arrival + frozen_origin.transfer_time,
+                self._algorithm.configuration.max_transfers + 1,
+                self._algorithm.configuration.max_cost
             )
+
+            if extended_path is None:
+                continue
+
+            path = self._frozen_flights + extended_path
             
-            solution = SolutionPath(self._algorithm, path)
-            
-            if solution.cost < self.best_cost:
-                self._center_path = solution
-                improved = True
+            if path is not None:
+                solution = SolutionPath(self._algorithm, path)
+                
+                if solution.cost < self.best_cost:
+                    self._center_path = solution
+                    improved = True
                 
         if not improved:
             self.shrink()
@@ -128,16 +139,30 @@ class BeeColonyAlgorithm:
         # TODO how do we scale time and price
         return overall_price * (1 - tp) + (overall_time) * tp
         
-    def global_search(self, source: Airport, target: Airport) -> Neighborhood:
+    def global_search(self, source: Airport, target: Airport) -> Optional[Neighborhood]:
+        path = self._network.random_dfs_search(
+            source,
+            target,
+            max_depth=self.configuration.max_transfers + 1,
+            max_cost=self.configuration.max_cost
+        )
+
+        if path is None:
+            return None
+
         return Neighborhood(
             self,
-            SolutionPath(self, self._network.random_dfs_search(source, target))
+            SolutionPath(self, path)
         )
         
-    def run(self, source: Airport, target: Airport) -> List[Flight]:
+    def run(self, source: Airport, target: Airport) -> Optional[List[Flight]]:
         conf = self._configuration
+
+        if self.global_search(source, target) is None:
+            return None
         
         sites = [self.global_search(source, target) for _ in range(conf.scout_bees)]
+        sites = [site for site in sites if site is not None]
         best_path = sites[0].best_path
         
         for _ in trange(conf.iterations):
@@ -167,6 +192,6 @@ class BeeColonyAlgorithm:
                 for _ in range(conf.scout_bees - len(left_sites))
             ]
             
-            sites = left_sites + new_sites
+            sites = left_sites + [new_site for new_site in new_sites if new_site is not None]
             
         return best_path.path

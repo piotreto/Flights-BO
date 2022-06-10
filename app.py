@@ -1,7 +1,9 @@
+from argparse import ArgumentParser
 from operator import attrgetter
 from typing import Optional, List
 from pathlib import Path
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
+import sys
 
 import streamlit as st
 import pydeck as pdk
@@ -9,10 +11,6 @@ import matplotlib
 
 from flights import Reader, Network, Flight
 from flights.bees import BeeColonyAlgorithm, BeeColonyConfiguration
-
-
-START_DATE = datetime(2015, 5, 15)
-END_DATE = datetime(2015, 5, 31)
 
 
 def ant_colony_algorithm(net: Network) -> Optional[List[Flight]]:
@@ -36,12 +34,12 @@ def bee_colony_algorithm(net: Network) -> Optional[List[Flight]]:
     with c1:
         max_cost      = st.number_input('Max cost', min_value=1, value=10000, step=10)
         time_priority = st.slider('Cost priority - Time priority', min_value=0.0, max_value=1.0, value=0.5, step=0.01)
-        from_date     = st.date_input('Journey start date', min_value=START_DATE, max_value=END_DATE, value=START_DATE)
+        from_date     = st.date_input('Journey start date', min_value=net.start_date, max_value=net.end_date, value=net.start_date)
 
     with c2:
         max_transfers = st.number_input('Max transfers', min_value=0, value=5, step=1)
         transfer_time = st.number_input('Transfer time (minutes)', min_value=0, value=30, step=5)
-        to_date       = st.date_input('Journey end date', min_value=START_DATE, max_value=END_DATE, value=END_DATE)
+        to_date       = st.date_input('Journey end date', min_value=net.start_date, max_value=net.end_date, value=net.end_date)
 
     st.markdown('### Airports')
     airports = sorted(net.airports, key=attrgetter('city'))
@@ -93,12 +91,8 @@ def bee_colony_algorithm(net: Network) -> Optional[List[Flight]]:
             max_shrinkages = max_shrinkages
         )
 
-        try:
-            algorithm = BeeColonyAlgorithm(net, configuration)
-            return algorithm.run(origin, destination)
-        except Exception as ex:
-            print(ex.with_traceback())
-            st.error(str(ex))
+        algorithm = BeeColonyAlgorithm(net, configuration)
+        return algorithm.run(origin, destination)
 
     return None
 
@@ -174,14 +168,18 @@ def main(net: Network):
         deck = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={'text': '{name}'})
 
         st.pydeck_chart(deck)
+
+    else:
+        st.error('Have not found any possible flights')
     
 
 if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('pickled_network', help='path to the pickled Network object')
+    args = parser.parse_args(sys.argv[1:])
 
     if 'net' not in st.session_state:
-        data_dir = Path(__file__).resolve().parent.parent.parent / 'data'
-        net = Reader.read_flights(data_dir, START_DATE, END_DATE)
-
+        net = Reader.read_network_pickled(args.pickled_network)
         st.session_state.net = net
 
     main(st.session_state.net)

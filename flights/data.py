@@ -20,7 +20,7 @@ class Airport:
         longitude: float,
         latitude: float,
         terminals: int = None,
-        default_transfer_time: int = timedelta(minutes=15)  # FIXME declaration is int, but default value is timedelta
+        default_transfer_time: timedelta = timedelta(minutes=45)
     ) -> None:
 
         self._codename = codename
@@ -37,7 +37,7 @@ class Airport:
 
         self._terminals = terminals
         if terminals is not None:
-            self._transfer_time = timedelta(minutes=15)  # TODO somehow calculate transfer time
+            self._transfer_time = timedelta(minutes=15) * self._terminals  # TODO somehow calculate transfer time
         else:
             self._transfer_time = default_transfer_time
 
@@ -186,10 +186,15 @@ class Flight:
 class Network:
     def __init__(
         self,
+        start_date: datetime,
+        end_date: datetime,
         airlines: List[Airline],
         airports: List[Airport],
         flights: List[Flight]
     ) -> None:
+
+        self._start_date = start_date
+        self._end_date = end_date
 
         self._airlines = airlines
         self._airports = airports
@@ -202,6 +207,14 @@ class Network:
             (flight.origin, flight.destination, {'obj': flight})
             for flight in self._flights
         ])
+
+    @property
+    def start_date(self) -> datetime:
+        return self._start_date
+
+    @property
+    def end_date(self) -> datetime:
+        return self._end_date
 
     @property
     def airports(self) -> List[Airport]:
@@ -226,20 +239,24 @@ class Network:
             if from_date <= flight.departure and flight.arrival <= to_date
         ]
 
-        return Network(self._airlines, self._airports, flights)
+        return Network(max(from_date, self.start_date), min(to_date, self.end_date), self._airlines, self._airports, flights)
 
-    def random_dfs_search(self, source: Airport, target: Airport, time_offset: datetime = None) -> Optional[List[Flight]]:
+    def random_dfs_search(
+        self,
+        source: Airport,
+        target: Airport,
+        time_offset: datetime = datetime(1970, 1, 1),
+        max_depth: int = float('inf'),
+        max_cost: float = float('inf')
+    ) -> Optional[List[Flight]]:
 
         if source == target:
             return []
 
-        if time_offset is None:
-            time_offset = datetime(1970, 1, 1)
-
         # default value is 9999th year, so that each entrance will have a better time
         visited: Dict[Airport, datetime] = defaultdict(lambda: datetime(9999, 12, 31))
         parent: Dict[Airport, Flight] = dict()
-        stack = [(source, time_offset)]
+        stack = [(source, time_offset, 0, 0)]  # Airport, time offset, depth, cost
 
         def aggregate_path():
             if target not in parent:
@@ -257,13 +274,16 @@ class Network:
 
         while stack:
 
-            airport, offset = stack.pop()
+            airport, offset, depth, cost = stack.pop()
             offset += airport.transfer_time
 
             for u, v, k in np.random.permutation(list(self._graph.out_edges(airport, keys=True))):
                 flight: Flight = self._graph.edges[u, v, k]['obj']
 
-                if flight.departure < offset:
+                if flight.departure < offset \
+                        or cost + flight.price > max_cost \
+                        or depth + 1 > max_depth:
+
                     continue
 
                 if visited[v] <= flight.arrival:
@@ -271,7 +291,7 @@ class Network:
 
                 visited[v] = flight.arrival
                 parent[v] = flight
-                stack.append((v, flight.arrival))
+                stack.append((v, flight.arrival, depth + 1, cost + flight.price))
 
                 if v == target:
                     return aggregate_path()
