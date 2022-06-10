@@ -186,10 +186,15 @@ class Flight:
 class Network:
     def __init__(
         self,
+        start_date: datetime,
+        end_date: datetime,
         airlines: List[Airline],
         airports: List[Airport],
         flights: List[Flight]
     ) -> None:
+
+        self._start_date = start_date
+        self._end_date = end_date
 
         self._airlines = airlines
         self._airports = airports
@@ -202,6 +207,14 @@ class Network:
             (flight.origin, flight.destination, {'obj': flight})
             for flight in self._flights
         ])
+
+    @property
+    def start_date(self) -> datetime:
+        return self._start_date
+
+    @property
+    def end_date(self) -> datetime:
+        return self._end_date
 
     @property
     def airports(self) -> List[Airport]:
@@ -226,8 +239,9 @@ class Network:
             if from_date <= flight.departure and flight.arrival <= to_date
         ]
 
-        return Network(self._airlines, self._airports, flights)
+        return Network(max(from_date, self.start_date), min(to_date, self.end_date), self._airlines, self._airports, flights)
 
+    # TODO update
     def random_dfs_search(self, source: Airport, target: Airport, time_offset: datetime = None) -> Optional[List[Flight]]:
 
         if source == target:
