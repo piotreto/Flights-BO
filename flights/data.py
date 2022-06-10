@@ -241,19 +241,22 @@ class Network:
 
         return Network(max(from_date, self.start_date), min(to_date, self.end_date), self._airlines, self._airports, flights)
 
-    # TODO update
-    def random_dfs_search(self, source: Airport, target: Airport, time_offset: datetime = None) -> Optional[List[Flight]]:
+    def random_dfs_search(
+        self,
+        source: Airport,
+        target: Airport,
+        time_offset: datetime = datetime(1970, 1, 1),
+        max_depth: int = float('inf'),
+        max_cost: float = float('inf')
+    ) -> Optional[List[Flight]]:
 
         if source == target:
             return []
 
-        if time_offset is None:
-            time_offset = datetime(1970, 1, 1)
-
         # default value is 9999th year, so that each entrance will have a better time
         visited: Dict[Airport, datetime] = defaultdict(lambda: datetime(9999, 12, 31))
         parent: Dict[Airport, Flight] = dict()
-        stack = [(source, time_offset)]
+        stack = [(source, time_offset, 0, 0)]  # Airport, time offset, depth, cost
 
         def aggregate_path():
             if target not in parent:
@@ -271,13 +274,16 @@ class Network:
 
         while stack:
 
-            airport, offset = stack.pop()
+            airport, offset, depth, cost = stack.pop()
             offset += airport.transfer_time
 
             for u, v, k in np.random.permutation(list(self._graph.out_edges(airport, keys=True))):
                 flight: Flight = self._graph.edges[u, v, k]['obj']
 
-                if flight.departure < offset:
+                if flight.departure < offset \
+                        or cost + flight.price > max_cost \
+                        or depth + 1 > max_depth:
+
                     continue
 
                 if visited[v] <= flight.arrival:
@@ -285,7 +291,7 @@ class Network:
 
                 visited[v] = flight.arrival
                 parent[v] = flight
-                stack.append((v, flight.arrival))
+                stack.append((v, flight.arrival, depth + 1, cost + flight.price))
 
                 if v == target:
                     return aggregate_path()

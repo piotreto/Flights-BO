@@ -168,6 +168,9 @@ def main(net: Network):
         deck = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={'text': '{name}'})
 
         st.pydeck_chart(deck)
+
+    else:
+        st.error('Have not found any possible flights')
     
 
 if __name__ == '__main__':
