@@ -43,14 +43,6 @@ class Ant:
 
 class AntColonyAlgorithm:
     def __init__(self, network: Network, configuration: AntColonyConfiguration):
-        # self.flights = flights
-        # self.origin = origin
-        # self.destination = destination
-        # self.min_time = min_time
-        # self.max_time = max_time
-        # self.min_conn_time = min_conn_time
-        # self.max_conn_numb = max_conn_numb
-        # self.max_price = max_price
         self.net = network
         self.config = configuration
 
@@ -218,6 +210,8 @@ class AntColonyAlgorithm:
 
     ###
     def run(self, origin: Airport, destination: Airport):
+        self.clean_pheromones(self.net.ant_graph)
+
         self._init_ants(origin)
 
         counter = 0
