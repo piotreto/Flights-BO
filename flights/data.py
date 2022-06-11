@@ -203,6 +203,9 @@ class Network:
             for flight in self._flights
         ])
 
+        self.ant_graph = nx.MultiGraph()
+        self._prepare_ant_graph()
+
     @property
     def airports(self) -> List[Airport]:
         return copy(self._airports)
@@ -277,3 +280,10 @@ class Network:
                     return aggregate_path()
 
         return None
+
+    def _prepare_ant_graph(self):
+        for flight in self.flights:
+            self.ant_graph.add_edge(flight.origin, flight.destination, origin=flight.origin,
+                                    destination=flight.destination, departure_time=flight.departure,
+                                    arrival_time=flight.arrival, flight_time=flight.time, price=flight.price,
+                                    pheromone_level=0, pheromone_update_time=0, flight=flight)

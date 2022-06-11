@@ -9,6 +9,7 @@ import matplotlib
 
 from flights import Reader, Network, Flight
 from flights.bees import BeeColonyAlgorithm, BeeColonyConfiguration
+from flights.ants import AntColonyConfiguration, AntColonyAlgorithm
 
 
 START_DATE = datetime(2015, 5, 15)
@@ -16,7 +17,87 @@ END_DATE = datetime(2015, 5, 31)
 
 
 def ant_colony_algorithm(net: Network) -> Optional[List[Flight]]:
-    st.error('Not implemented yet')
+    st.sidebar.write('Algorithm hyperparameters')
+    iters_numb = st.sidebar.number_input('Iterations', min_value=1, max_value=1000000000, value=1000, step=10)
+    result_samples = st.sidebar.number_input('Result samples', min_value=1, max_value=1000000, value=100, step=10)
+    ants_number = st.sidebar.number_input('Ants number', min_value=1, max_value=1000000, value=100, step=10)
+    ants_spawn_iters = st.sidebar.number_input('Spawn iterations', min_value=1, max_value=1000, value=10, step=1)
+    connection_samples = st.sidebar.number_input('Connection samples', min_value=1, max_value=1000, value=3, step=1)
+    direct_connection_impact = st.sidebar.slider('Direct connection impact', min_value=0.0, max_value=1.0, value=0.8, step=0.01)
+    pheromone_impact = st.sidebar.slider('Pheromone impact', min_value=0.0, max_value=1.0, value=0.4, step=0.01)
+    time_impact_nodes = st.sidebar.slider('Cost impact - Time impact (in nodes)', min_value=0.0, max_value=1.0, value=0.6, step=0.01)
+    pheromone_updating_time = st.sidebar.number_input('Pheromone updating time', min_value=1, max_value=1000000, value=1000, step=10)
+
+    st.markdown('### Options')
+    c1, c2 = st.columns(2)
+
+    with c1:
+        max_price = st.number_input('Max cost', min_value=1, value=10000, step=10)
+        time_impact_choice = st.slider('Cost priority - Time priority (in result choice)', min_value=0.0, max_value=1.0, value=0.5, step=0.01)
+        min_time = st.date_input('Journey start date', min_value=START_DATE, max_value=END_DATE, value=START_DATE)
+
+    with c2:
+        max_conn_numb = st.number_input('Max transfers', min_value=0, value=5, step=1)
+        min_conn_time = st.number_input('Transfer time (minutes)', min_value=0, value=90, step=5)
+        max_time = st.date_input('Journey end date', min_value=START_DATE, max_value=END_DATE, value=END_DATE)
+
+    st.markdown('### Airports')
+    airports = sorted(net.airports, key=attrgetter('city'))
+    options = list(range(len(airports)))
+    c1, c2 = st.columns(2)
+
+    with c1:
+        origin_idx = st.selectbox('Origin', options=options,
+                                  format_func=lambda i: f'{airports[i].city}, {airports[i].state} ({airports[i].name})')
+        origin = airports[origin_idx]
+
+    with c2:
+        destination_idx = st.selectbox('Destination', options=options, format_func=lambda
+            i: f'{airports[i].city}, {airports[i].state} ({airports[i].name})')
+        destination = airports[destination_idx]
+
+    # parameters verification block
+    verified = True
+    if ants_spawn_iters > ants_number:
+        st.warning('Number of spawn iterations cannot be highter than ants number')
+        verified = False
+    if min_time >= max_time:
+        st.warning('End date must be later than the start date')
+        verified = False
+    if origin == destination:
+        st.warning('Origin and destination airports must be different')
+        verified = False
+
+    if st.button('Find'):
+        if not verified:
+            st.error('You cannot run the algorithm while there are warnings about the parameters')
+            return None
+
+        configuration = AntColonyConfiguration(
+            iters_numb = iters_numb,
+            result_samples = result_samples,
+            ants_number = ants_number,
+            ants_spawn_iters = ants_spawn_iters,
+            connection_samples = connection_samples,
+            direct_connection_impact = direct_connection_impact,
+            time_impact_nodes = time_impact_nodes,
+            pheromone_impact = pheromone_impact,
+            pheromone_updating_time = pheromone_updating_time,
+            min_time = datetime(min_time.year, min_time.month, min_time.day),
+            max_time = datetime(max_time.year, max_time.month, max_time.day),
+            min_conn_time = min_conn_time,
+            max_conn_numb = max_conn_numb,
+            max_price = max_price,
+            time_impact_choice = time_impact_choice
+        )
+
+        try:
+            algorithm = AntColonyAlgorithm(net, configuration)
+            return algorithm.run(origin, destination)
+        except Exception as ex:
+            print(ex.with_traceback())
+            st.error(str(ex))
+
     return None
 
 
