@@ -2,8 +2,10 @@ from datetime import datetime, date, time, timedelta
 from typing import Dict, Optional
 from pathlib import Path
 
+import scipy.stats as st
 import pandas as pd
 import numpy as np
+import pickle
 
 from .data import Network, Airline, Airport, Flight
 
@@ -11,10 +13,29 @@ from .data import Network, Airline, Airport, Flight
 class Reader:
     FLIGHTS_COLS = ['YEAR', 'MONTH', 'DAY', 'AIRLINE', 'ORIGIN_AIRPORT', 'DESTINATION_AIRPORT', 'SCHEDULED_DEPARTURE', 'DISTANCE', 'SCHEDULED_TIME', 'SCHEDULED_ARRIVAL']
 
-    # TODO I think we should create a much more complex distribution to generate price, and add some noise
+    @staticmethod
+    def random_price(size: int):
+        lowcost_count = int((1 / 11.7) * size)
+        normalcost_count = int((10 / 11.7) * size)
+        highcost_count = size - lowcost_count - normalcost_count
+
+        values = np.concatenate([
+            st.norm.ppf(np.random.random(size=lowcost_count),    loc=0.1, scale=0.04),
+            st.norm.ppf(np.random.random(size=normalcost_count), loc=0.3, scale=0.15),
+            st.norm.ppf(np.random.random(size=highcost_count),   loc=0.8, scale=0.1)
+        ])
+
+        return np.maximum(0, values)
+
     @staticmethod
     def _generate_price(dists: np.ndarray):
-        return np.round(np.random.normal(0.2, 0.07, size=dists.shape[0]) * dists, 2)
+        return np.maximum(
+            0,
+            np.round(
+                Reader.random_price(dists.shape[0]) * dists + np.random.normal(30, 15, size=dists.shape[0]),
+                2
+            )
+        )
 
     # TODO would be great to get the real numbers of terminals
     # I searched for 15 minutes and couldn't find anything related, should check better resources
@@ -80,6 +101,12 @@ class Reader:
     def read_flights(data_dir: str, from_date: datetime = None, to_date: datetime = None) -> Network:
         data_dir = Path(data_dir).resolve()
 
+        # FIXME this should be infered by using max and min on the data
+        if from_date is None:
+            from_date = datetime(2015, 1, 1)
+        if to_date is None:
+            to_date = datetime(2015, 12, 31)
+
         if not data_dir.exists() or not data_dir.is_dir():
             raise ValueError('the given path does not exist or is not a directory')
 
@@ -117,7 +144,18 @@ class Reader:
         ]
 
         return Network(
+            from_date,
+            to_date,
             list(airlines.values()),
             list(airports.values()),
             flights
         )
+
+    @staticmethod
+    def read_network_pickled(pickle_path: str) -> Network:
+        with open(pickle_path, 'rb') as f:
+            network = pickle.load(f)
+
+        assert type(network) == Network, 'pickled file does not contain a Network class or it is outdated'
+
+        return network
