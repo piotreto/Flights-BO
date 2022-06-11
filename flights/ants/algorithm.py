@@ -3,6 +3,8 @@ import queue
 import numpy as np
 import datetime
 
+from tqdm import trange
+
 from .configuration import AntColonyConfiguration
 from ..data import Network, Flight, Airport
 
@@ -214,10 +216,8 @@ class AntColonyAlgorithm:
 
         self._init_ants(origin)
 
-        counter = 0
-        while counter < self.config.iters_numb:
+        for _ in trange(self.config.iters_numb):
             self._run_next_event(origin, destination)
-            counter += 1
 
         results = []
         while len(results) < self.config.result_samples:
