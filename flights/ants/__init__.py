@@ -1,2 +1,2 @@
-from .algorithm import AntsColonyAlgorithm
+from .algorithm import AntColonyAlgorithm
 from .configuration import AntColonyConfiguration
