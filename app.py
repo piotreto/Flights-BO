@@ -19,7 +19,7 @@ END_DATE = datetime(2015, 5, 31)
 def ant_colony_algorithm(net: Network) -> Optional[List[Flight]]:
     st.sidebar.write('Algorithm hyperparameters')
     iters_numb = st.sidebar.number_input('Iterations', min_value=1, max_value=1000000000, value=1000, step=10)
-    result_samples = st.sidebar.number_input('Result samples', min_value=1, max_value=1000000, value=100, step=10)
+    result_samples = st.sidebar.number_input('Result samples', min_value=1, max_value=1000000, value=10, step=10)
     ants_number = st.sidebar.number_input('Ants number', min_value=1, max_value=1000000, value=100, step=10)
     ants_spawn_iters = st.sidebar.number_input('Spawn iterations', min_value=1, max_value=1000, value=10, step=1)
     connection_samples = st.sidebar.number_input('Connection samples', min_value=1, max_value=1000, value=3, step=1)
@@ -59,7 +59,10 @@ def ant_colony_algorithm(net: Network) -> Optional[List[Flight]]:
     # parameters verification block
     verified = True
     if ants_spawn_iters > ants_number:
-        st.warning('Number of spawn iterations cannot be highter than ants number')
+        st.warning('Number of spawn iterations cannot be higher than ants number')
+        verified = False
+    if ants_number > 3 * iters_numb:
+        st.warning('Number of iterations must be at least 3 times higher than ants number')
         verified = False
     if min_time >= max_time:
         st.warning('End date must be later than the start date')
